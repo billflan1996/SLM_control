@@ -59,12 +59,7 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
     double loom_face_diam = 18;
     AffineTransform a_t = new AffineTransform();
 
-    double ell_T = -5;
-    double ell_L = -5;
-    double ell_W = 10;
-    double ell_H = 10;
-    
-    Circle_To_Draw loom_face;
+    Circle_To_Draw loom_face = new Circle_To_Draw("Loom face",false,loom_face_diam/2,0,0);
     Circle_To_Draw beams[][] = null;
     
     /**
@@ -84,7 +79,7 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
     public void calc_scaling(){
         panelwidth = this.getWidth();
         panelheight = this.getHeight();
-        draw_scaling = (panelwidth*(1-(2*padfraction))/(loom_face_diam));
+        draw_scaling = (panelwidth*(1-(2*padfraction))/(2*loom_face_diam));
     }    
     
     public void init_canvas() {
@@ -113,7 +108,7 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
             a_t.scale(draw_scaling,draw_scaling);
             map.setTransform(a_t);
             
-            render_shape = new Ellipse2D.Double(ell_L,ell_T,ell_W,ell_H);
+            render_shape = new Ellipse2D.Double((loom_face.get_xctr_mm()-loom_face.get_rad_mm()),(loom_face.get_yctr_mm()-loom_face.get_rad_mm()),loom_face.get_rad_mm()*2,loom_face.get_rad_mm()*2);
             map.draw(render_shape);
             
             if(beams!=null){
@@ -151,14 +146,6 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
             .addGap(0, 300, Short.MAX_VALUE)
         );
     }// </editor-fold>//GEN-END:initComponents
-
-    void set_ell(double ell_T_in, double ell_L_in, double ell_W_in, double ell_H_in) {
-        ell_T = ell_T_in;
-        ell_L = ell_L_in;
-        ell_W = ell_W_in;
-        ell_H = ell_H_in;
-        System.out.println(ell_T+", "+ell_L+", "+ell_W+", "+ell_H);
-    }
 
     @Override
     public void mouseClicked(MouseEvent e) {

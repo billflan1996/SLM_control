@@ -170,11 +170,7 @@ public class M3M_SLM_hostframe extends javax.swing.JFrame {
     void set_drawing_paused(boolean newval){
         drawing_paused = newval;
     }
-    
-    void set_ell(double ell_T, double ell_L, double ell_W, double ell_H) {
-        excitation_map1.set_ell(ell_T, ell_L, ell_W, ell_H);
-    }
-    
+      
     void refresh_panels(){
         excitation_map1.refresh();
     }

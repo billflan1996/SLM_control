@@ -33,10 +33,8 @@ import javax.swing.JTextField;
  */
 public class SLM_controls extends javax.swing.JPanel {
     private M3M_SLM_hostframe parent_;
-    double ell_W;
-    double ell_H;
-    double ell_T;
-    double ell_L;
+    double default_beamspacing_h = 4;
+    double default_beamspacing_v = 3;
     public int n_beams_x = 2;
     public int n_beams_y = 3;
     public int n_beams_total = n_beams_x*n_beams_y;
@@ -61,14 +59,7 @@ public class SLM_controls extends javax.swing.JPanel {
         String input = source_field.getText();
         source_field.setText(parent_.utils.strip_non_numeric(input));
     }
-    
-    void update_rect(){
-        ell_T = Double.parseDouble(n_b_x_field.getText());
-        ell_L = Double.parseDouble(n_b_y_field.getText());
-        parent_.set_ell(ell_T,ell_L,ell_W,ell_H);
-        //parent_.refresh_panels(); // For case without GRT
-    }
-    
+       
     void update_beam_info(){
         parent_.update_beams(beams);
     }
@@ -101,8 +92,12 @@ public class SLM_controls extends javax.swing.JPanel {
                 if(x<ncols && y<nrows && initialised_){
                     beams[x][y] = old_beams [x][y];
                 } else {
-                    //Generate new beam
-                    beams[x][y] = new Circle_To_Draw(name,true, 0.1,x,y);
+                    //Generate new beam from scratch
+                    double range_x = ((double)n_beams_x-1)*default_beamspacing_h;
+                    double range_y = ((double)n_beams_y-1)*default_beamspacing_v;
+                    double x_spacing = range_x/(n_beams_x-1);
+                    double y_spacing = range_y/(n_beams_y-1);
+                    beams[x][y] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2),(y*y_spacing)-(range_y/2));
                 }
                 beam_selected.addItem(name);
             }

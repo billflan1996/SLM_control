@@ -68,13 +68,16 @@ public class M3M_SLM_hostframe extends javax.swing.JFrame {
         core_ = gui_.getCMMCore();
         initComponents();
         Path scriptpath = ijroot.toPath();
-        sLM_controls2.set_parent(frame_);
+        //Needed for it to show without clicking?
         excitation_map1.set_parent(frame_);
+        sLM_controls2.set_parent(frame_);
         initComponents();
-        
+        //Setup panels and refresh thread
+        excitation_map1.set_parent(frame_);
+        sLM_controls2.set_parent(frame_);
         refresh_thread = new Thread(new DRT(this));
         refresh_thread.start();
-        
+        //Draw loom
         loom_face = new Circle_To_Draw("", false,18,0,0,Color.black,false);
     }
 

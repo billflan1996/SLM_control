@@ -168,28 +168,28 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
 
     @Override
     public void mouseClicked(MouseEvent e) {
-        System.out.println("Click");
+        //System.out.println("Click");
         refresh();
     }
 
     @Override
     public void mousePressed(MouseEvent e) {
-        System.out.println("Press");
+        //System.out.println("Press");
     }
 
     @Override
     public void mouseReleased(MouseEvent e) {
-        System.out.println("Release");
+        //System.out.println("Release");
     }
 
     @Override
     public void mouseEntered(MouseEvent e) {
-        System.out.println("Enter");
+        //System.out.println("Enter");
     }
 
     @Override
     public void mouseExited(MouseEvent e) {
-        System.out.println("Exit");
+        //System.out.println("Exit");
     }
 
     void refresh() {
@@ -198,6 +198,7 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
 
     void set_beams(Circle_To_Draw[][] beams_in) {
         beams = beams_in.clone();
+        System.out.println(beams);
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

@@ -64,18 +64,21 @@ public class SLM_controls extends javax.swing.JPanel {
      */
     public SLM_controls() {
         initComponents();
-        update_beam_selection();
         fileChooser_load.setCurrentDirectory(new File(System.getProperty("user.home")));
         fileChooser_load.addChoosableFileFilter(txtFilter);
         fileChooser_save.setCurrentDirectory(new File(System.getProperty("user.home")));        
         fileChooser_save.addChoosableFileFilter(txtFilter);
-        initialised_ = true;
     }
     
     public void set_parent(Object parentframe){
         parent_ = (M3M_SLM_hostframe) parentframe;
-        update_beam_info();
+        initialised_ = true;
+        setup_for_display();
     }    
+    
+    void setup_for_display(){
+        generate_square_beam_array();
+    }
     
     void sanitise(JTextField source_field){
         String input = source_field.getText();
@@ -98,18 +101,8 @@ public class SLM_controls extends javax.swing.JPanel {
         update_beam_info();
     }
     
-    void update_beam_selection(){
-        Circle_To_Draw old_beams[][] = beams.clone();
-        //We assume that the array is rectangular and full - doesn't make much sense to scan anything else?
-        int old_nrows = old_beams.length;
-        int old_ncols = 0;
-        if(old_nrows>0){
-            old_ncols = old_beams[0].length;
-        }
+    void generate_square_beam_array(){
         beams = new Circle_To_Draw[n_beams_x][n_beams_y];
-        ignore_selection_activity = true;
-        beam_selected.removeAllItems();
-        System.out.println("Old rows: "+old_nrows+" ,Old cols: "+old_ncols);
         for(int x=0;x<n_beams_x;x++){
             for(int y=0;y<n_beams_y;y++){
                 String name = "Beam_"+Integer.toString(x)+"_"+Integer.toString(y);
@@ -127,22 +120,44 @@ public class SLM_controls extends javax.swing.JPanel {
                 //In case we have a persistent offset
                 double offset_x = 0;
                 double offset_y = 0;
-                if(x<old_ncols && y<old_nrows && initialised_){
-                    beams[x][y] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2)-offset_x,(y*y_spacing)-(range_y/2)-offset_y,colour_list[(y+(x*n_beams_y))%n_colours],false);
-                } else {
-                    beams[x][y] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2)-offset_x,(y*y_spacing)-(range_y/2)-offset_y,colour_list[(y+(x*n_beams_y))%n_colours],false);
-                }
-                beam_selected.addItem(name);
+                beams[x][y] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2)-offset_x,(y*y_spacing)-(range_y/2)-offset_y,colour_list[(y+(x*n_beams_y))%n_colours],false);
             }
         }
-        ignore_selection_activity = false;
+        update_dropdown_from_beams();
         if(initialised_){
             update_beam_info();
         }
     }
     
     void update_dropdown_from_beams(){
+        ignore_selection_activity = true;
+        beam_selected.removeAllItems();
+        int to_highlight = 0;
+        double sel_x_pos = beams[0][0].get_xctr_mm();
+        double sel_y_pos = beams[0][0].get_yctr_mm();
+        boolean any_highlighted = false;
+        for(int x=0;x<n_beams_x;x++){
+            for(int y=0;y<n_beams_y;y++){
+                beam_selected.addItem(beams[x][y].get_name());
+                if(beams[x][y].get_highlighted()){
+                    to_highlight = ((x*n_beams_y)+y);
+                    sel_x_pos = beams[x][y].get_xctr_mm();
+                    sel_y_pos = beams[x][y].get_yctr_mm();
+                    any_highlighted = true;
+                }
+            }
+        }
+        if(!any_highlighted){
+            beams[0][0].set_highlighted(true);
+        }
+        beam_selected.setSelectedIndex(to_highlight);
+        bs_xpos.setText(Double.toString(sel_x_pos));
+        bs_ypos.setText(Double.toString(sel_y_pos));
+        ignore_selection_activity = false;
+    }
     
+    void report_array_size(){
+        System.out.println("============\nBeams in X: "+n_beams_x+"\nBeams in Y: "+n_beams_y);
     }
     
     int[] parse_beam_name(String name_in){
@@ -152,7 +167,7 @@ public class SLM_controls extends javax.swing.JPanel {
         xval = Integer.parseInt(parts[1]);
         yval = Integer.parseInt(parts[2]);
         int[] retarr = {xval,yval};
-        System.out.println(retarr);
+        //System.out.println(retarr);
         return(retarr);
     }
 
@@ -303,19 +318,19 @@ public class SLM_controls extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     private void TESTActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_TESTActionPerformed
-        parent_.update_beams(beams);
+        //update_beam_info();
     }//GEN-LAST:event_TESTActionPerformed
 
     private void n_b_x_fieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_n_b_x_fieldActionPerformed
         sanitise(n_b_x_field);
         n_beams_x = Integer.parseInt(n_b_x_field.getText());
-        update_beam_selection();
+        generate_square_beam_array();
     }//GEN-LAST:event_n_b_x_fieldActionPerformed
 
     private void n_b_y_fieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_n_b_y_fieldActionPerformed
         sanitise(n_b_y_field);
         n_beams_y = Integer.parseInt(n_b_y_field.getText());
-        update_beam_selection();
+        generate_square_beam_array();
     }//GEN-LAST:event_n_b_y_fieldActionPerformed
 
     private void beam_selectedActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_beam_selectedActionPerformed
@@ -337,7 +352,7 @@ public class SLM_controls extends javax.swing.JPanel {
                 active_beam[0] = beam_sel[0];
                 active_beam[1] = beam_sel[1];
             } catch(Exception e){
-                System.out.println("Error at 321");
+                System.out.println("Error on selecting beam!");
             }
         }
     }//GEN-LAST:event_beam_selectedActionPerformed
@@ -366,14 +381,13 @@ public class SLM_controls extends javax.swing.JPanel {
                     selectedFile.createNewFile();
                     FileWriter Writer = new FileWriter(selectedFile);
                     Writer.write(gsonified);
-                    System.out.println(gsonified);
+                    //System.out.println(gsonified);
                     Writer.close();
                 } catch (IOException ex) {
                     Logger.getLogger(SLM_controls.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }
-        System.out.println(gsonified);
     }//GEN-LAST:event_save_buttonActionPerformed
 
     private void load_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_load_buttonActionPerformed
@@ -390,6 +404,13 @@ public class SLM_controls extends javax.swing.JPanel {
                     }
                     Reader.close();
                     beams = gson.fromJson(input, Circle_To_Draw[][].class);
+                    n_beams_x = beams.length;
+                    if(n_beams_x>0){
+                        n_beams_y = beams[0].length;
+                    }
+                    n_b_x_field.setText(Integer.toString(n_beams_x));
+                    n_b_y_field.setText(Integer.toString(n_beams_y));
+                    update_dropdown_from_beams();
                     update_beam_info();
                 } catch (FileNotFoundException e) {
                     System.out.println("An error occurred.");

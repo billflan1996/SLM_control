@@ -25,6 +25,8 @@
  */
 package M3M_SLM_UI;
 
+import java.awt.Color;
+
 /**
  *
  * @author Sunil
@@ -35,12 +37,28 @@ public class Circle_To_Draw {
     private double x_ctr_mm;
     private double y_ctr_mm;
     private String name = null;
+    private Color beam_colour = Color.red;
+    private boolean highlighted = false;
     
     void set_fill(boolean newval){
         fill = newval;
     }
     boolean get_fill(){
         return fill;
+    }
+    
+    void set_highlighted(boolean highlight){
+        highlighted = highlight;
+    }
+    boolean get_highlighted(){
+        return highlighted;
+    }
+    
+    void set_colour(Color newcol){
+        beam_colour = newcol;
+    }
+    Color get_colour(){
+        return beam_colour;
     }
     
     void set_rad_mm(double newval){
@@ -71,12 +89,24 @@ public class Circle_To_Draw {
         return name;
     }    
     
-    public Circle_To_Draw(String name_in, boolean fill_in, double radius_mm_in, double xctr_mm_in, double yctr_mm_in){
+    public Circle_To_Draw(String name_in, boolean fill_in, double radius_mm_in, double xctr_mm_in, double yctr_mm_in, Color beam_colour_in, boolean highlighted_in){
         name = name_in;
         fill = fill_in;
         radius_mm = radius_mm_in;
         x_ctr_mm = xctr_mm_in;
         y_ctr_mm = yctr_mm_in;
+        beam_colour = beam_colour_in;
+        highlighted = highlighted_in;
+    }
+     
+    public Circle_To_Draw(Circle_To_Draw input_circ){
+        name = input_circ.get_name();
+        fill = input_circ.get_fill();
+        radius_mm = input_circ.get_rad_mm();
+        x_ctr_mm = input_circ.get_xctr_mm();
+        y_ctr_mm = input_circ.get_yctr_mm();
+        beam_colour = input_circ.get_colour();
+        highlighted = input_circ.get_highlighted();
     }
 }
 

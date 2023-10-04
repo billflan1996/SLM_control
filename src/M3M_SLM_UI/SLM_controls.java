@@ -25,7 +25,18 @@
  */
 package M3M_SLM_UI;
 
+import com.google.gson.Gson;
+import java.awt.Color;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.JFileChooser;
 import javax.swing.JTextField;
+import javax.swing.filechooser.FileFilter;
 
 /**
  *
@@ -37,10 +48,16 @@ public class SLM_controls extends javax.swing.JPanel {
     double default_beamspacing_v = 3;
     public int n_beams_x = 2;
     public int n_beams_y = 3;
-    public int n_beams_total = n_beams_x*n_beams_y;
     Circle_To_Draw beams[][] = new Circle_To_Draw[n_beams_x][n_beams_y];
     int[] active_beam = {0,0};
     boolean initialised_ = false;
+    private Color[] colour_list = {Color.red, Color.orange, Color.yellow, Color.green, Color.blue, Color.magenta, Color.cyan, Color.gray};
+    int n_colours = 8;
+    Gson gson = new Gson();
+    JFileChooser fileChooser_load = new JFileChooser();
+    JFileChooser fileChooser_save = new JFileChooser();
+    FileFilter txtFilter = new FileTypeFilter(".txt", "Text files");
+    boolean ignore_selection_activity = false;
     
     /**
      * Creates new form SLM_controls
@@ -48,11 +65,16 @@ public class SLM_controls extends javax.swing.JPanel {
     public SLM_controls() {
         initComponents();
         update_beam_selection();
+        fileChooser_load.setCurrentDirectory(new File(System.getProperty("user.home")));
+        fileChooser_load.addChoosableFileFilter(txtFilter);
+        fileChooser_save.setCurrentDirectory(new File(System.getProperty("user.home")));        
+        fileChooser_save.addChoosableFileFilter(txtFilter);
         initialised_ = true;
     }
     
     public void set_parent(Object parentframe){
         parent_ = (M3M_SLM_hostframe) parentframe;
+        update_beam_info();
     }    
     
     void sanitise(JTextField source_field){
@@ -77,31 +99,50 @@ public class SLM_controls extends javax.swing.JPanel {
     }
     
     void update_beam_selection(){
-        Circle_To_Draw old_beams[][] = beams;
-        //We assume that the array is rectangular and full
-        System.out.println(old_beams.toString());
-        int nrows = beams.length;
-        int ncols = 0;
-        if(nrows>0){
-            ncols = beams[0].length;
+        Circle_To_Draw old_beams[][] = beams.clone();
+        //We assume that the array is rectangular and full - doesn't make much sense to scan anything else?
+        int old_nrows = old_beams.length;
+        int old_ncols = 0;
+        if(old_nrows>0){
+            old_ncols = old_beams[0].length;
         }
+        beams = new Circle_To_Draw[n_beams_x][n_beams_y];
+        ignore_selection_activity = true;
         beam_selected.removeAllItems();
+        System.out.println("Old rows: "+old_nrows+" ,Old cols: "+old_ncols);
         for(int x=0;x<n_beams_x;x++){
             for(int y=0;y<n_beams_y;y++){
                 String name = "Beam_"+Integer.toString(x)+"_"+Integer.toString(y);
-                if(x<ncols && y<nrows && initialised_){
-                    beams[x][y] = old_beams [x][y];
+                //Generate new beam from scratch
+                double range_x = ((double)n_beams_x-1)*default_beamspacing_h;
+                double range_y = ((double)n_beams_y-1)*default_beamspacing_v;
+                double x_spacing = 0;
+                double y_spacing = 0;
+                if(range_x != 0){
+                    x_spacing = range_x/(n_beams_x-1);
+                }
+                if(range_y != 0){
+                    y_spacing = range_y/(n_beams_y-1);
+                }
+                //In case we have a persistent offset
+                double offset_x = 0;
+                double offset_y = 0;
+                if(x<old_ncols && y<old_nrows && initialised_){
+                    beams[x][y] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2)-offset_x,(y*y_spacing)-(range_y/2)-offset_y,colour_list[(y+(x*n_beams_y))%n_colours],false);
                 } else {
-                    //Generate new beam from scratch
-                    double range_x = ((double)n_beams_x-1)*default_beamspacing_h;
-                    double range_y = ((double)n_beams_y-1)*default_beamspacing_v;
-                    double x_spacing = range_x/(n_beams_x-1);
-                    double y_spacing = range_y/(n_beams_y-1);
-                    beams[x][y] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2),(y*y_spacing)-(range_y/2));
+                    beams[x][y] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2)-offset_x,(y*y_spacing)-(range_y/2)-offset_y,colour_list[(y+(x*n_beams_y))%n_colours],false);
                 }
                 beam_selected.addItem(name);
             }
         }
+        ignore_selection_activity = false;
+        if(initialised_){
+            update_beam_info();
+        }
+    }
+    
+    void update_dropdown_from_beams(){
+    
     }
     
     int[] parse_beam_name(String name_in){
@@ -135,8 +176,8 @@ public class SLM_controls extends javax.swing.JPanel {
         bs_xpos = new javax.swing.JTextField();
         jLabel5 = new javax.swing.JLabel();
         bs_ypos = new javax.swing.JTextField();
-        jButton1 = new javax.swing.JButton();
-        jButton2 = new javax.swing.JButton();
+        load_button = new javax.swing.JButton();
+        save_button = new javax.swing.JButton();
 
         TEST.setText("TEST");
         TEST.addActionListener(new java.awt.event.ActionListener() {
@@ -190,9 +231,19 @@ public class SLM_controls extends javax.swing.JPanel {
             }
         });
 
-        jButton1.setText("Load");
+        load_button.setText("Load");
+        load_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                load_buttonActionPerformed(evt);
+            }
+        });
 
-        jButton2.setText("Save");
+        save_button.setText("Save");
+        save_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                save_buttonActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
@@ -215,8 +266,8 @@ public class SLM_controls extends javax.swing.JPanel {
                         .addComponent(jLabel4)
                         .addGap(18, 18, 18)
                         .addComponent(bs_xpos, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(jButton2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(save_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(load_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(18, 18, 18)
                 .addComponent(jLabel5)
                 .addGap(18, 18, 18)
@@ -232,13 +283,13 @@ public class SLM_controls extends javax.swing.JPanel {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(n_b_x_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel1)
-                    .addComponent(jButton1)
+                    .addComponent(load_button)
                     .addComponent(TEST))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(n_b_y_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel2)
-                    .addComponent(jButton2))
+                    .addComponent(save_button))
                 .addGap(18, 18, 18)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(beam_selected, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -257,28 +308,37 @@ public class SLM_controls extends javax.swing.JPanel {
 
     private void n_b_x_fieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_n_b_x_fieldActionPerformed
         sanitise(n_b_x_field);
+        n_beams_x = Integer.parseInt(n_b_x_field.getText());
         update_beam_selection();
     }//GEN-LAST:event_n_b_x_fieldActionPerformed
 
     private void n_b_y_fieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_n_b_y_fieldActionPerformed
         sanitise(n_b_y_field);
+        n_beams_y = Integer.parseInt(n_b_y_field.getText());
         update_beam_selection();
     }//GEN-LAST:event_n_b_y_fieldActionPerformed
 
     private void beam_selectedActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_beam_selectedActionPerformed
-        if(initialised_){
+        if(initialised_ && ignore_selection_activity==false){
             String sel_beam = (String) beam_selected.getSelectedItem();
             for(int x=0;x<n_beams_x;x++){
                 for(int y=0;y<n_beams_y;y++){
                     if(beams[x][y].get_name()==sel_beam){
                         bs_xpos.setText(Double.toString(beams[x][y].get_xctr_mm()));
                         bs_ypos.setText(Double.toString(beams[x][y].get_yctr_mm()));
+                        beams[x][y].set_highlighted(true);
+                    } else {
+                        beams[x][y].set_highlighted(false);
                     }
                 }
             }
-            int[]beam_sel = parse_beam_name(sel_beam);
-            active_beam[0] = beam_sel[0];
-            active_beam[1] = beam_sel[1];
+            try{
+                int[]beam_sel = parse_beam_name(sel_beam);
+                active_beam[0] = beam_sel[0];
+                active_beam[1] = beam_sel[1];
+            } catch(Exception e){
+                System.out.println("Error at 321");
+            }
         }
     }//GEN-LAST:event_beam_selectedActionPerformed
 
@@ -294,20 +354,67 @@ public class SLM_controls extends javax.swing.JPanel {
         update_beam_details(beam_name,Double.parseDouble(bs_xpos.getText()),Double.parseDouble(bs_ypos.getText()));
     }//GEN-LAST:event_bs_yposActionPerformed
 
+    private void save_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_save_buttonActionPerformed
+        String gsonified = gson.toJson(beams);
+        int result = fileChooser_load.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser_load.getSelectedFile();
+            if(selectedFile.isFile()){
+                System.out.println("CAN'T OVERWRITE AN EXISTING FILE");
+            } else {
+                try {
+                    selectedFile.createNewFile();
+                    FileWriter Writer = new FileWriter(selectedFile);
+                    Writer.write(gsonified);
+                    System.out.println(gsonified);
+                    Writer.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(SLM_controls.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+        System.out.println(gsonified);
+    }//GEN-LAST:event_save_buttonActionPerformed
+
+    private void load_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_load_buttonActionPerformed
+        int result = fileChooser_load.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser_load.getSelectedFile();
+            if(selectedFile.isFile()){
+                String input = "";
+                try{
+                    Scanner Reader = new Scanner(selectedFile);
+                    while (Reader.hasNextLine()){
+                        String data = Reader.nextLine();
+                        input += data;
+                    }
+                    Reader.close();
+                    beams = gson.fromJson(input, Circle_To_Draw[][].class);
+                    update_beam_info();
+                } catch (FileNotFoundException e) {
+                    System.out.println("An error occurred.");
+                    e.printStackTrace();
+                }
+            } else {
+                System.out.println("NOT AN EXISTING FILE?!");
+            }
+        }
+    }//GEN-LAST:event_load_buttonActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton TEST;
     private javax.swing.JComboBox<String> beam_selected;
     private javax.swing.JTextField bs_xpos;
     private javax.swing.JTextField bs_ypos;
-    private javax.swing.JButton jButton1;
-    private javax.swing.JButton jButton2;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
+    private javax.swing.JButton load_button;
     private javax.swing.JTextField n_b_x_field;
     private javax.swing.JTextField n_b_y_field;
+    private javax.swing.JButton save_button;
     // End of variables declaration//GEN-END:variables
 }

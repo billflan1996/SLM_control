@@ -57,6 +57,7 @@ public class M3M_SLM_hostframe extends javax.swing.JFrame {
     public Thread refresh_thread;
     Circle_To_Draw loom_face;
     Circle_To_Draw beams[][] = null;
+
         
     /**
      * Creates new form M3M_SLM_hostframe
@@ -74,7 +75,7 @@ public class M3M_SLM_hostframe extends javax.swing.JFrame {
         refresh_thread = new Thread(new DRT(this));
         refresh_thread.start();
         
-        loom_face = new Circle_To_Draw("", false,18,0,0);
+        loom_face = new Circle_To_Draw("", false,18,0,0,Color.black,false);
     }
 
     /**

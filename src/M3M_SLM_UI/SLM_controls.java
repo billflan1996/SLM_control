@@ -31,6 +31,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -46,9 +47,12 @@ public class SLM_controls extends javax.swing.JPanel {
     private M3M_SLM_hostframe parent_;
     double default_beamspacing_h = 4;
     double default_beamspacing_v = 3;
-    public int n_beams_x = 2;
-    public int n_beams_y = 3;
-    Circle_To_Draw beams[][] = new Circle_To_Draw[n_beams_x][n_beams_y];
+    public int n_beams_x = 1;
+    public int n_beams_y = 1;
+    Circle_To_Draw[][] active_beams = new Circle_To_Draw[n_beams_x][n_beams_y];
+    int max_stored_beams = 100;
+    int current_stored_beam = 0;
+    Circle_To_Draw[] stored_beams = new Circle_To_Draw[max_stored_beams];
     int[] active_beam = {0,0};
     boolean initialised_ = false;
     private Color[] colour_list = {Color.red, Color.orange, Color.yellow, Color.green, Color.blue, Color.magenta, Color.cyan, Color.gray};
@@ -58,6 +62,7 @@ public class SLM_controls extends javax.swing.JPanel {
     JFileChooser fileChooser_save = new JFileChooser();
     FileFilter txtFilter = new FileTypeFilter(".txt", "Text files");
     boolean ignore_selection_activity = false;
+    boolean show_stored_beams = false;
     
     /**
      * Creates new form SLM_controls
@@ -86,15 +91,16 @@ public class SLM_controls extends javax.swing.JPanel {
     }
        
     void update_beam_info(){
-        parent_.update_beams(beams);
+        Circle_To_Draw[] truncated_stored_beams = Arrays.copyOfRange(stored_beams, 0, current_stored_beam);
+        parent_.update_beams(active_beams,truncated_stored_beams,show_stored_beams);
     }
     
     void update_beam_details(String beam_name,double new_xpos, double new_ypos){
         for(int x=0;x<n_beams_x;x++){
             for(int y=0;y<n_beams_y;y++){
-                if(beams[x][y].get_name()==beam_name){
-                    beams[x][y].set_xctr_mm(new_xpos);
-                    beams[x][y].set_yctr_mm(new_ypos);
+                if(active_beams[x][y].get_name()==beam_name){
+                    active_beams[x][y].set_xctr_mm(new_xpos);
+                    active_beams[x][y].set_yctr_mm(new_ypos);
                 }
             }
         }
@@ -102,7 +108,7 @@ public class SLM_controls extends javax.swing.JPanel {
     }
     
     void generate_square_beam_array(){
-        beams = new Circle_To_Draw[n_beams_x][n_beams_y];
+        active_beams = new Circle_To_Draw[n_beams_x][n_beams_y];
         for(int x=0;x<n_beams_x;x++){
             for(int y=0;y<n_beams_y;y++){
                 String name = "Beam_"+Integer.toString(x)+"_"+Integer.toString(y);
@@ -120,7 +126,7 @@ public class SLM_controls extends javax.swing.JPanel {
                 //In case we have a persistent offset
                 double offset_x = 0;
                 double offset_y = 0;
-                beams[x][y] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2)-offset_x,(y*y_spacing)-(range_y/2)-offset_y,colour_list[(y+(x*n_beams_y))%n_colours],false);
+                active_beams[x][y] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2)-offset_x,(y*y_spacing)-(range_y/2)-offset_y,colour_list[(y+(x*n_beams_y))%n_colours],false);
             }
         }
         update_dropdown_from_beams();
@@ -133,22 +139,22 @@ public class SLM_controls extends javax.swing.JPanel {
         ignore_selection_activity = true;
         beam_selected.removeAllItems();
         int to_highlight = 0;
-        double sel_x_pos = beams[0][0].get_xctr_mm();
-        double sel_y_pos = beams[0][0].get_yctr_mm();
+        double sel_x_pos = active_beams[0][0].get_xctr_mm();
+        double sel_y_pos = active_beams[0][0].get_yctr_mm();
         boolean any_highlighted = false;
         for(int x=0;x<n_beams_x;x++){
             for(int y=0;y<n_beams_y;y++){
-                beam_selected.addItem(beams[x][y].get_name());
-                if(beams[x][y].get_highlighted()){
+                beam_selected.addItem(active_beams[x][y].get_name());
+                if(active_beams[x][y].get_highlighted()){
                     to_highlight = ((x*n_beams_y)+y);
-                    sel_x_pos = beams[x][y].get_xctr_mm();
-                    sel_y_pos = beams[x][y].get_yctr_mm();
+                    sel_x_pos = active_beams[x][y].get_xctr_mm();
+                    sel_y_pos = active_beams[x][y].get_yctr_mm();
                     any_highlighted = true;
                 }
             }
         }
         if(!any_highlighted){
-            beams[0][0].set_highlighted(true);
+            active_beams[0][0].set_highlighted(true);
         }
         beam_selected.setSelectedIndex(to_highlight);
         bs_xpos.setText(Double.toString(sel_x_pos));
@@ -180,7 +186,7 @@ public class SLM_controls extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        TEST = new javax.swing.JButton();
+        add_to_list_button = new javax.swing.JButton();
         n_b_x_field = new javax.swing.JTextField();
         n_b_y_field = new javax.swing.JTextField();
         jLabel1 = new javax.swing.JLabel();
@@ -193,22 +199,34 @@ public class SLM_controls extends javax.swing.JPanel {
         bs_ypos = new javax.swing.JTextField();
         load_button = new javax.swing.JButton();
         save_button = new javax.swing.JButton();
+        UP_BUTTON = new javax.swing.JButton();
+        DOWN_BUTTON = new javax.swing.JButton();
+        RIGHT_BUTTON = new javax.swing.JButton();
+        LEFT_BUTTON = new javax.swing.JButton();
+        h_nudge = new javax.swing.JTextField();
+        v_nudge = new javax.swing.JTextField();
+        generate_hologram_button = new javax.swing.JButton();
+        jLabel6 = new javax.swing.JLabel();
+        jLabel7 = new javax.swing.JLabel();
+        filler2 = new javax.swing.Box.Filler(new java.awt.Dimension(50, 50), new java.awt.Dimension(50, 50), new java.awt.Dimension(50, 50));
+        show_stored = new javax.swing.JCheckBox();
+        gen_square_button = new javax.swing.JButton();
 
-        TEST.setText("TEST");
-        TEST.addActionListener(new java.awt.event.ActionListener() {
+        add_to_list_button.setText("Add to list");
+        add_to_list_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                TESTActionPerformed(evt);
+                add_to_list_buttonActionPerformed(evt);
             }
         });
 
-        n_b_x_field.setText("2");
+        n_b_x_field.setText("1");
         n_b_x_field.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 n_b_x_fieldActionPerformed(evt);
             }
         });
 
-        n_b_y_field.setText("3");
+        n_b_y_field.setText("1");
         n_b_y_field.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 n_b_y_fieldActionPerformed(evt);
@@ -246,91 +264,227 @@ public class SLM_controls extends javax.swing.JPanel {
             }
         });
 
-        load_button.setText("Load");
+        load_button.setText("Load pattern");
         load_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 load_buttonActionPerformed(evt);
             }
         });
 
-        save_button.setText("Save");
+        save_button.setText("Save pattern");
         save_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 save_buttonActionPerformed(evt);
             }
         });
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
-        this.setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel1)
-                    .addComponent(jLabel2)
-                    .addComponent(jLabel3))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(n_b_y_field)
-                    .addComponent(beam_selected, 0, 117, Short.MAX_VALUE)
-                    .addComponent(n_b_x_field))
-                .addGap(18, 18, 18)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(jLabel4)
-                        .addGap(18, 18, 18)
-                        .addComponent(bs_xpos, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(save_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(load_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(18, 18, 18)
-                .addComponent(jLabel5)
-                .addGap(18, 18, 18)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(bs_ypos, javax.swing.GroupLayout.DEFAULT_SIZE, 82, Short.MAX_VALUE)
-                    .addComponent(TEST, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGap(19, 19, 19)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(n_b_x_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel1)
-                    .addComponent(load_button)
-                    .addComponent(TEST))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(n_b_y_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel2)
-                    .addComponent(save_button))
-                .addGap(18, 18, 18)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(beam_selected, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel3)
-                    .addComponent(jLabel4)
-                    .addComponent(bs_xpos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel5)
-                    .addComponent(bs_ypos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-    }// </editor-fold>//GEN-END:initComponents
+        UP_BUTTON.setText("/\\");
+            UP_BUTTON.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    UP_BUTTONActionPerformed(evt);
+                }
+            });
 
-    private void TESTActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_TESTActionPerformed
-        //update_beam_info();
-    }//GEN-LAST:event_TESTActionPerformed
+            DOWN_BUTTON.setText("\\/");
+            DOWN_BUTTON.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    DOWN_BUTTONActionPerformed(evt);
+                }
+            });
+
+            RIGHT_BUTTON.setText(">");
+            RIGHT_BUTTON.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    RIGHT_BUTTONActionPerformed(evt);
+                }
+            });
+
+            LEFT_BUTTON.setText("<");
+            LEFT_BUTTON.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    LEFT_BUTTONActionPerformed(evt);
+                }
+            });
+
+            h_nudge.setText("0.1");
+            h_nudge.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    h_nudgeActionPerformed(evt);
+                }
+            });
+
+            v_nudge.setText("0.1");
+            v_nudge.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    v_nudgeActionPerformed(evt);
+                }
+            });
+
+            generate_hologram_button.setText("Generate full hologram");
+
+            jLabel6.setText("h nudge");
+
+            jLabel7.setText("v nudge");
+
+            show_stored.setText("Show stored beams");
+            show_stored.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    show_storedActionPerformed(evt);
+                }
+            });
+
+            gen_square_button.setText("Generate beam array");
+            gen_square_button.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    gen_square_buttonActionPerformed(evt);
+                }
+            });
+
+            javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
+            this.setLayout(layout);
+            layout.setHorizontalGroup(
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(layout.createSequentialGroup()
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                            .addContainerGap()
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(layout.createSequentialGroup()
+                                    .addComponent(jLabel6)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                    .addComponent(h_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, 99, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGroup(layout.createSequentialGroup()
+                                    .addComponent(jLabel7)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                    .addComponent(v_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                            .addGap(126, 126, 126))
+                        .addGroup(layout.createSequentialGroup()
+                            .addGap(226, 226, 226)
+                            .addComponent(jLabel4)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
+                    .addComponent(bs_xpos, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGap(18, 18, 18)
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(layout.createSequentialGroup()
+                            .addComponent(jLabel5)
+                            .addGap(18, 18, 18)
+                            .addComponent(bs_ypos, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                            .addGap(0, 0, Short.MAX_VALUE)
+                            .addComponent(LEFT_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addComponent(UP_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGroup(layout.createSequentialGroup()
+                                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                                        .addComponent(DOWN_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 49, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(filler2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                    .addComponent(RIGHT_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                            .addContainerGap(12, Short.MAX_VALUE))))
+                .addGroup(layout.createSequentialGroup()
+                    .addContainerGap()
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(layout.createSequentialGroup()
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addComponent(jLabel1)
+                                .addComponent(jLabel2)
+                                .addComponent(jLabel3))
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                .addComponent(n_b_y_field)
+                                .addComponent(beam_selected, 0, 117, Short.MAX_VALUE)
+                                .addComponent(n_b_x_field))
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addComponent(gen_square_button)
+                            .addGap(43, 43, 43)
+                            .addComponent(generate_hologram_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addGap(12, 12, 12))
+                        .addGroup(layout.createSequentialGroup()
+                            .addGap(16, 16, 16)
+                            .addComponent(show_stored)
+                            .addGap(43, 43, 43)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                                .addComponent(save_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(add_to_list_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(load_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+            );
+            layout.setVerticalGroup(
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(layout.createSequentialGroup()
+                    .addGap(19, 19, 19)
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(n_b_x_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel1)
+                        .addComponent(generate_hologram_button)
+                        .addComponent(gen_square_button))
+                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(n_b_y_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel2))
+                    .addGap(18, 18, 18)
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(beam_selected, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel3)
+                        .addComponent(jLabel4)
+                        .addComponent(bs_xpos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel5)
+                        .addComponent(bs_ypos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(layout.createSequentialGroup()
+                            .addGap(27, 27, 27)
+                            .addComponent(UP_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                .addComponent(filler2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(RIGHT_BUTTON, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(LEFT_BUTTON, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addComponent(DOWN_BUTTON, javax.swing.GroupLayout.DEFAULT_SIZE, 49, Short.MAX_VALUE)
+                            .addContainerGap())
+                        .addGroup(layout.createSequentialGroup()
+                            .addGap(46, 46, 46)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                    .addComponent(h_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(jLabel6))
+                                .addComponent(add_to_list_button))
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(layout.createSequentialGroup()
+                                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(v_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(jLabel7))
+                                    .addGap(18, 18, 18)
+                                    .addComponent(show_stored))
+                                .addGroup(layout.createSequentialGroup()
+                                    .addComponent(load_button)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                    .addComponent(save_button)))
+                            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+            );
+        }// </editor-fold>//GEN-END:initComponents
+
+    private void add_to_list_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_add_to_list_buttonActionPerformed
+        if(current_stored_beam<max_stored_beams){
+            stored_beams[current_stored_beam] = new Circle_To_Draw(active_beams[0][0]);
+            current_stored_beam++;
+            update_beam_info();
+        } else {
+            System.out.println("Too many beams to store!");
+        }
+    }//GEN-LAST:event_add_to_list_buttonActionPerformed
 
     private void n_b_x_fieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_n_b_x_fieldActionPerformed
         sanitise(n_b_x_field);
         n_beams_x = Integer.parseInt(n_b_x_field.getText());
-        generate_square_beam_array();
     }//GEN-LAST:event_n_b_x_fieldActionPerformed
 
     private void n_b_y_fieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_n_b_y_fieldActionPerformed
         sanitise(n_b_y_field);
         n_beams_y = Integer.parseInt(n_b_y_field.getText());
-        generate_square_beam_array();
     }//GEN-LAST:event_n_b_y_fieldActionPerformed
 
     private void beam_selectedActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_beam_selectedActionPerformed
@@ -338,12 +492,12 @@ public class SLM_controls extends javax.swing.JPanel {
             String sel_beam = (String) beam_selected.getSelectedItem();
             for(int x=0;x<n_beams_x;x++){
                 for(int y=0;y<n_beams_y;y++){
-                    if(beams[x][y].get_name()==sel_beam){
-                        bs_xpos.setText(Double.toString(beams[x][y].get_xctr_mm()));
-                        bs_ypos.setText(Double.toString(beams[x][y].get_yctr_mm()));
-                        beams[x][y].set_highlighted(true);
+                    if(active_beams[x][y].get_name()==sel_beam){
+                        bs_xpos.setText(Double.toString(active_beams[x][y].get_xctr_mm()));
+                        bs_ypos.setText(Double.toString(active_beams[x][y].get_yctr_mm()));
+                        active_beams[x][y].set_highlighted(true);
                     } else {
-                        beams[x][y].set_highlighted(false);
+                        active_beams[x][y].set_highlighted(false);
                     }
                 }
             }
@@ -370,7 +524,7 @@ public class SLM_controls extends javax.swing.JPanel {
     }//GEN-LAST:event_bs_yposActionPerformed
 
     private void save_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_save_buttonActionPerformed
-        String gsonified = gson.toJson(beams);
+        String gsonified = gson.toJson(active_beams);
         int result = fileChooser_load.showOpenDialog(this);
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser_load.getSelectedFile();
@@ -403,10 +557,10 @@ public class SLM_controls extends javax.swing.JPanel {
                         input += data;
                     }
                     Reader.close();
-                    beams = gson.fromJson(input, Circle_To_Draw[][].class);
-                    n_beams_x = beams.length;
+                    active_beams = gson.fromJson(input, Circle_To_Draw[][].class);
+                    n_beams_x = active_beams.length;
                     if(n_beams_x>0){
-                        n_beams_y = beams[0].length;
+                        n_beams_y = active_beams[0].length;
                     }
                     n_b_x_field.setText(Integer.toString(n_beams_x));
                     n_b_y_field.setText(Integer.toString(n_beams_y));
@@ -422,20 +576,77 @@ public class SLM_controls extends javax.swing.JPanel {
         }
     }//GEN-LAST:event_load_buttonActionPerformed
 
+    private void UP_BUTTONActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_UP_BUTTONActionPerformed
+        double new_y = Double.parseDouble(bs_ypos.getText())+Double.parseDouble(v_nudge.getText());
+        bs_ypos.setText(Double.toString(new_y));
+        String beam_name = beam_selected.getSelectedItem().toString();
+        update_beam_details(beam_name,Double.parseDouble(bs_xpos.getText()),Double.parseDouble(bs_ypos.getText()));
+    }//GEN-LAST:event_UP_BUTTONActionPerformed
+
+    private void RIGHT_BUTTONActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_RIGHT_BUTTONActionPerformed
+        double new_x = Double.parseDouble(bs_xpos.getText())+Double.parseDouble(h_nudge.getText());
+        bs_xpos.setText(Double.toString(new_x));
+        String beam_name = beam_selected.getSelectedItem().toString();
+        update_beam_details(beam_name,Double.parseDouble(bs_xpos.getText()),Double.parseDouble(bs_ypos.getText()));
+    }//GEN-LAST:event_RIGHT_BUTTONActionPerformed
+
+    private void DOWN_BUTTONActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DOWN_BUTTONActionPerformed
+        double new_y = Double.parseDouble(bs_ypos.getText())-Double.parseDouble(v_nudge.getText());
+        bs_ypos.setText(Double.toString(new_y));
+        String beam_name = beam_selected.getSelectedItem().toString();
+        update_beam_details(beam_name,Double.parseDouble(bs_xpos.getText()),Double.parseDouble(bs_ypos.getText()));
+    }//GEN-LAST:event_DOWN_BUTTONActionPerformed
+
+    private void LEFT_BUTTONActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_LEFT_BUTTONActionPerformed
+        double new_x = Double.parseDouble(bs_xpos.getText())-Double.parseDouble(h_nudge.getText());
+        bs_xpos.setText(Double.toString(new_x));
+        String beam_name = beam_selected.getSelectedItem().toString();
+        update_beam_details(beam_name,Double.parseDouble(bs_xpos.getText()),Double.parseDouble(bs_ypos.getText()));
+    }//GEN-LAST:event_LEFT_BUTTONActionPerformed
+
+    private void h_nudgeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_h_nudgeActionPerformed
+        sanitise(h_nudge);
+    }//GEN-LAST:event_h_nudgeActionPerformed
+
+    private void v_nudgeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_v_nudgeActionPerformed
+        sanitise(v_nudge);
+    }//GEN-LAST:event_v_nudgeActionPerformed
+
+    private void show_storedActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_show_storedActionPerformed
+        show_stored_beams = show_stored.isSelected();
+        update_beam_info();
+    }//GEN-LAST:event_show_storedActionPerformed
+
+    private void gen_square_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_gen_square_buttonActionPerformed
+        generate_square_beam_array();
+    }//GEN-LAST:event_gen_square_buttonActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton TEST;
+    private javax.swing.JButton DOWN_BUTTON;
+    private javax.swing.JButton LEFT_BUTTON;
+    private javax.swing.JButton RIGHT_BUTTON;
+    private javax.swing.JButton UP_BUTTON;
+    private javax.swing.JButton add_to_list_button;
     private javax.swing.JComboBox<String> beam_selected;
     private javax.swing.JTextField bs_xpos;
     private javax.swing.JTextField bs_ypos;
+    private javax.swing.Box.Filler filler2;
+    private javax.swing.JButton gen_square_button;
+    private javax.swing.JButton generate_hologram_button;
+    private javax.swing.JTextField h_nudge;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
+    private javax.swing.JLabel jLabel6;
+    private javax.swing.JLabel jLabel7;
     private javax.swing.JButton load_button;
     private javax.swing.JTextField n_b_x_field;
     private javax.swing.JTextField n_b_y_field;
     private javax.swing.JButton save_button;
+    private javax.swing.JCheckBox show_stored;
+    private javax.swing.JTextField v_nudge;
     // End of variables declaration//GEN-END:variables
 }

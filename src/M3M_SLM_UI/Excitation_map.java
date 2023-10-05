@@ -49,6 +49,7 @@ import java.awt.geom.Ellipse2D;
 public class Excitation_map extends javax.swing.JPanel implements MouseListener{
     private M3M_SLM_hostframe parent_;
     Stroke thin_stroke = new BasicStroke((float) 0.1, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0);
+    Stroke thin_dashed_stroke = new BasicStroke((float) 0.2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,0, new float[]{0.314f}, 0);
     Stroke medium_stroke = new BasicStroke((float) 0.5, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0);
     Stroke thick_stroke = new BasicStroke(5, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0);
     Stroke heavy_stroke = new BasicStroke(40, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0);
@@ -62,9 +63,12 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
     int blink_counter = 0;
     int blink_stride = 10;
     boolean blink_on = false;
+    boolean show_stored_beams = false;
 
     Circle_To_Draw loom_face = new Circle_To_Draw("Loom face",false,loom_face_diam/2,0,0, Color.black, false);
-    Circle_To_Draw beams[][] = null;
+    Circle_To_Draw[][] active_beams = null;
+    Circle_To_Draw stored_beams[] = null;
+    int n_stored_beams = 0;
     
     /**
      * Creates new form Excitation_map
@@ -111,9 +115,10 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
             
             //Set transform
             a_t.setToIdentity();
+            //Centre at zero
             a_t.translate(getWidth()/2,getHeight()/2);
-            
-            a_t.scale(draw_scaling,draw_scaling);
+            //Flip vertical
+            a_t.scale(draw_scaling,-draw_scaling);
             map.setTransform(a_t);
             
             //Loom area render
@@ -121,13 +126,14 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
             render_shape = new Ellipse2D.Double((loom_face.get_xctr_mm()-loom_face.get_rad_mm()),(loom_face.get_yctr_mm()-loom_face.get_rad_mm()),loom_face.get_rad_mm()*2,loom_face.get_rad_mm()*2);
             map.draw(render_shape);
             
-            if(beams!=null){
-                for(int x=0;x<beams.length;x++){
-                    for(int y=0;y<beams[x].length;y++){
-                        map.setPaint(beams[x][y].get_colour());
+            //Active beams render
+            if(active_beams!=null){
+                for(int x=0;x<active_beams.length;x++){
+                    for(int y=0;y<active_beams[x].length;y++){
+                        map.setPaint(active_beams[x][y].get_colour());
                         //System.out.println(beams[x][y].get_xctr_mm()+","+beams[x][y].get_yctr_mm());
-                        render_shape = new Ellipse2D.Double((beams[x][y].get_xctr_mm()-beams[x][y].get_rad_mm()),(beams[x][y].get_yctr_mm()-beams[x][y].get_rad_mm()),beams[x][y].get_rad_mm()*2,beams[x][y].get_rad_mm()*2);
-                        if(beams[x][y].get_highlighted()==false){
+                        render_shape = new Ellipse2D.Double((active_beams[x][y].get_xctr_mm()-active_beams[x][y].get_rad_mm()),(active_beams[x][y].get_yctr_mm()-active_beams[x][y].get_rad_mm()),active_beams[x][y].get_rad_mm()*2,active_beams[x][y].get_rad_mm()*2);
+                        if(active_beams[x][y].get_highlighted()==false){
                             map.fill(render_shape);
                         } else {
                             if(blink_on){
@@ -140,6 +146,23 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
                     }
                 }
             }
+            //Stored beams render
+            if(show_stored_beams){
+                double mag=1.2;
+                if(stored_beams!=null){
+                    if(stored_beams.length>0){
+                        for(int i=0;i<n_stored_beams;i++){
+                            if(stored_beams[i]!=null){
+                                render_shape = new Ellipse2D.Double((stored_beams[i].get_xctr_mm()-mag*stored_beams[i].get_rad_mm()),(stored_beams[i].get_yctr_mm()-mag*stored_beams[i].get_rad_mm()),mag*stored_beams[i].get_rad_mm()*2,mag*stored_beams[i].get_rad_mm()*2);
+                                map.setPaint(Color.red);
+                                map.setStroke(thin_dashed_stroke);
+                                map.draw(render_shape);
+                            }
+                        }
+                    }
+                }
+            }
+            
         } //else {
 //            System.out.println("Drawing paused");
 //        }
@@ -196,9 +219,12 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
         repaint();
     }
 
-    void set_beams(Circle_To_Draw[][] beams_in) {
-        beams = beams_in.clone();
-        System.out.println(beams);
+    void set_beams(Circle_To_Draw[][] active_beams_in, Circle_To_Draw[] stored_beams_in, boolean show_stored_beams_in) {
+        active_beams = active_beams_in.clone();
+        stored_beams = stored_beams_in.clone();
+        n_stored_beams = stored_beams.length;
+        show_stored_beams = show_stored_beams_in;
+        //System.out.println(active_beams);
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

@@ -89,6 +89,16 @@ public class Circle_To_Draw {
         return name;
     }    
     
+    public Circle_To_Draw(){
+        fill = false;
+        radius_mm = 0;
+        x_ctr_mm = 0;
+        y_ctr_mm = 0;
+        name = null;
+        beam_colour = null;
+        highlighted = false;
+    }
+    
     public Circle_To_Draw(String name_in, boolean fill_in, double radius_mm_in, double xctr_mm_in, double yctr_mm_in, Color beam_colour_in, boolean highlighted_in){
         name = name_in;
         fill = fill_in;

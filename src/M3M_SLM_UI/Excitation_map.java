@@ -63,10 +63,10 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
     int blink_counter = 0;
     int blink_stride = 10;
     boolean blink_on = false;
-    boolean show_stored_beams = false;
+    boolean show_stored_beams = true;
 
     Circle_To_Draw loom_face = new Circle_To_Draw("Loom face",false,loom_face_diam/2,0,0, Color.black, false);
-    Circle_To_Draw[][] active_beams = null;
+    Circle_To_Draw[] active_beams = null;
     Circle_To_Draw stored_beams[] = null;
     int n_stored_beams = 0;
     
@@ -128,12 +128,12 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
             
             //Active beams render
             if(active_beams!=null){
-                for(int x=0;x<active_beams.length;x++){
-                    for(int y=0;y<active_beams[x].length;y++){
-                        map.setPaint(active_beams[x][y].get_colour());
+                if(active_beams.length>0){
+                    for(int i=0;i<active_beams.length;i++){
+                        map.setPaint(active_beams[i].get_colour());
                         //System.out.println(beams[x][y].get_xctr_mm()+","+beams[x][y].get_yctr_mm());
-                        render_shape = new Ellipse2D.Double((active_beams[x][y].get_xctr_mm()-active_beams[x][y].get_rad_mm()),(active_beams[x][y].get_yctr_mm()-active_beams[x][y].get_rad_mm()),active_beams[x][y].get_rad_mm()*2,active_beams[x][y].get_rad_mm()*2);
-                        if(active_beams[x][y].get_highlighted()==false){
+                        render_shape = new Ellipse2D.Double((active_beams[i].get_xctr_mm()-active_beams[i].get_rad_mm()),(active_beams[i].get_yctr_mm()-active_beams[i].get_rad_mm()),active_beams[i].get_rad_mm()*2,active_beams[i].get_rad_mm()*2);
+                        if(active_beams[i].get_highlighted()==false){
                             map.fill(render_shape);
                         } else {
                             if(blink_on){
@@ -219,12 +219,11 @@ public class Excitation_map extends javax.swing.JPanel implements MouseListener{
         repaint();
     }
 
-    void set_beams(Circle_To_Draw[][] active_beams_in, Circle_To_Draw[] stored_beams_in, boolean show_stored_beams_in) {
+    void set_beams(Circle_To_Draw[] active_beams_in, Circle_To_Draw[] stored_beams_in, boolean show_stored_beams_in) {
         active_beams = active_beams_in.clone();
         stored_beams = stored_beams_in.clone();
         n_stored_beams = stored_beams.length;
         show_stored_beams = show_stored_beams_in;
-        //System.out.println(active_beams);
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

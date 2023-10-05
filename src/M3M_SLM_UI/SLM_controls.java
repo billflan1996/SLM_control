@@ -49,7 +49,8 @@ public class SLM_controls extends javax.swing.JPanel {
     double default_beamspacing_v = 3;
     public int n_beams_x = 1;
     public int n_beams_y = 1;
-    Circle_To_Draw[][] active_beams = new Circle_To_Draw[n_beams_x][n_beams_y];
+    public int n_active_beams = n_beams_x*n_beams_y;
+    Circle_To_Draw[]active_beams = new Circle_To_Draw[n_beams_x*n_beams_y];
     int max_stored_beams = 100;
     int current_stored_beam = 0;
     Circle_To_Draw[] stored_beams = new Circle_To_Draw[max_stored_beams];
@@ -62,7 +63,7 @@ public class SLM_controls extends javax.swing.JPanel {
     JFileChooser fileChooser_save = new JFileChooser();
     FileFilter txtFilter = new FileTypeFilter(".txt", "Text files");
     boolean ignore_selection_activity = false;
-    boolean show_stored_beams = false;
+    boolean show_stored_beams = true;
     
     /**
      * Creates new form SLM_controls
@@ -79,6 +80,7 @@ public class SLM_controls extends javax.swing.JPanel {
         parent_ = (M3M_SLM_hostframe) parentframe;
         initialised_ = true;
         setup_for_display();
+        clear_stored_beams();
     }    
     
     void setup_for_display(){
@@ -90,28 +92,39 @@ public class SLM_controls extends javax.swing.JPanel {
         source_field.setText(parent_.utils.strip_non_numeric(input));
     }
        
-    void update_beam_info(){
+    void update_beam_arrays(){
         Circle_To_Draw[] truncated_stored_beams = Arrays.copyOfRange(stored_beams, 0, current_stored_beam);
         parent_.update_beams(active_beams,truncated_stored_beams,show_stored_beams);
     }
     
+    private void clear_stored_beams() {
+        stored_beams = new Circle_To_Draw[max_stored_beams];
+        int i=0;
+        for(Circle_To_Draw beam : stored_beams){
+            stored_beams[i] = new Circle_To_Draw();
+            i++;
+        }
+        current_stored_beam = 0;
+        update_beam_arrays();
+    }
+    
     void update_beam_details(String beam_name,double new_xpos, double new_ypos){
-        for(int x=0;x<n_beams_x;x++){
-            for(int y=0;y<n_beams_y;y++){
-                if(active_beams[x][y].get_name()==beam_name){
-                    active_beams[x][y].set_xctr_mm(new_xpos);
-                    active_beams[x][y].set_yctr_mm(new_ypos);
-                }
+        for(int i=0;i<n_active_beams;i++){
+            if(active_beams[i].get_name()==beam_name){
+                active_beams[i].set_xctr_mm(new_xpos);
+                active_beams[i].set_yctr_mm(new_ypos);
             }
         }
-        update_beam_info();
+        update_beam_arrays();
     }
     
     void generate_square_beam_array(){
-        active_beams = new Circle_To_Draw[n_beams_x][n_beams_y];
+        n_active_beams = n_beams_x*n_beams_y;
+        active_beams = new Circle_To_Draw[n_active_beams];
+        int i=0;
         for(int x=0;x<n_beams_x;x++){
             for(int y=0;y<n_beams_y;y++){
-                String name = "Beam_"+Integer.toString(x)+"_"+Integer.toString(y);
+                String name = "Beam_"+Integer.toString(i);
                 //Generate new beam from scratch
                 double range_x = ((double)n_beams_x-1)*default_beamspacing_h;
                 double range_y = ((double)n_beams_y-1)*default_beamspacing_v;
@@ -126,12 +139,13 @@ public class SLM_controls extends javax.swing.JPanel {
                 //In case we have a persistent offset
                 double offset_x = 0;
                 double offset_y = 0;
-                active_beams[x][y] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2)-offset_x,(y*y_spacing)-(range_y/2)-offset_y,colour_list[(y+(x*n_beams_y))%n_colours],false);
+                active_beams[i] = new Circle_To_Draw(name,true, 0.5,(x*x_spacing)-(range_x/2)-offset_x,(y*y_spacing)-(range_y/2)-offset_y,colour_list[(y+(x*n_beams_y))%n_colours],false);
+                i++;
             }
         }
         update_dropdown_from_beams();
         if(initialised_){
-            update_beam_info();
+            update_beam_arrays();
         }
     }
     
@@ -139,22 +153,20 @@ public class SLM_controls extends javax.swing.JPanel {
         ignore_selection_activity = true;
         beam_selected.removeAllItems();
         int to_highlight = 0;
-        double sel_x_pos = active_beams[0][0].get_xctr_mm();
-        double sel_y_pos = active_beams[0][0].get_yctr_mm();
+        double sel_x_pos = active_beams[0].get_xctr_mm();
+        double sel_y_pos = active_beams[0].get_yctr_mm();
         boolean any_highlighted = false;
-        for(int x=0;x<n_beams_x;x++){
-            for(int y=0;y<n_beams_y;y++){
-                beam_selected.addItem(active_beams[x][y].get_name());
-                if(active_beams[x][y].get_highlighted()){
-                    to_highlight = ((x*n_beams_y)+y);
-                    sel_x_pos = active_beams[x][y].get_xctr_mm();
-                    sel_y_pos = active_beams[x][y].get_yctr_mm();
-                    any_highlighted = true;
-                }
+        for(int i=0;i<n_active_beams;i++){
+            beam_selected.addItem(active_beams[i].get_name());
+            if(active_beams[i].get_highlighted()){
+                to_highlight = i;
+                sel_x_pos = active_beams[i].get_xctr_mm();
+                sel_y_pos = active_beams[i].get_yctr_mm();
+                any_highlighted = true;
             }
         }
         if(!any_highlighted){
-            active_beams[0][0].set_highlighted(true);
+            active_beams[0].set_highlighted(true);
         }
         beam_selected.setSelectedIndex(to_highlight);
         bs_xpos.setText(Double.toString(sel_x_pos));
@@ -211,8 +223,14 @@ public class SLM_controls extends javax.swing.JPanel {
         filler2 = new javax.swing.Box.Filler(new java.awt.Dimension(50, 50), new java.awt.Dimension(50, 50), new java.awt.Dimension(50, 50));
         show_stored = new javax.swing.JCheckBox();
         gen_square_button = new javax.swing.JButton();
+        swap_active_and_stored_button = new javax.swing.JButton();
+        clear_stored_button = new javax.swing.JButton();
+        jLabel8 = new javax.swing.JLabel();
+        y_spacing_field = new javax.swing.JTextField();
+        jLabel9 = new javax.swing.JLabel();
+        x_spacing_field = new javax.swing.JTextField();
 
-        add_to_list_button.setText("Add to list");
+        add_to_list_button.setText("Add to stored");
         add_to_list_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 add_to_list_buttonActionPerformed(evt);
@@ -264,14 +282,14 @@ public class SLM_controls extends javax.swing.JPanel {
             }
         });
 
-        load_button.setText("Load pattern");
+        load_button.setText("Load to stored");
         load_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 load_buttonActionPerformed(evt);
             }
         });
 
-        save_button.setText("Save pattern");
+        save_button.setText("Save stored pattern");
         save_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 save_buttonActionPerformed(evt);
@@ -306,26 +324,27 @@ public class SLM_controls extends javax.swing.JPanel {
                 }
             });
 
-            h_nudge.setText("0.1");
+            h_nudge.setText("1");
             h_nudge.addActionListener(new java.awt.event.ActionListener() {
                 public void actionPerformed(java.awt.event.ActionEvent evt) {
                     h_nudgeActionPerformed(evt);
                 }
             });
 
-            v_nudge.setText("0.1");
+            v_nudge.setText("1");
             v_nudge.addActionListener(new java.awt.event.ActionListener() {
                 public void actionPerformed(java.awt.event.ActionEvent evt) {
                     v_nudgeActionPerformed(evt);
                 }
             });
 
-            generate_hologram_button.setText("Generate full hologram");
+            generate_hologram_button.setText("Generate hologram from active");
 
             jLabel6.setText("h nudge");
 
             jLabel7.setText("v nudge");
 
+            show_stored.setSelected(true);
             show_stored.setText("Show stored beams");
             show_stored.addActionListener(new java.awt.event.ActionListener() {
                 public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -340,49 +359,86 @@ public class SLM_controls extends javax.swing.JPanel {
                 }
             });
 
+            swap_active_and_stored_button.setText("Swap active/stored");
+            swap_active_and_stored_button.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    swap_active_and_stored_buttonActionPerformed(evt);
+                }
+            });
+
+            clear_stored_button.setText("Clear stored");
+            clear_stored_button.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    clear_stored_buttonActionPerformed(evt);
+                }
+            });
+
+            jLabel8.setText("y spacing:");
+
+            y_spacing_field.setText("3");
+            y_spacing_field.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    y_spacing_fieldActionPerformed(evt);
+                }
+            });
+
+            jLabel9.setText("x spacing:");
+
+            x_spacing_field.setText("4");
+            x_spacing_field.addActionListener(new java.awt.event.ActionListener() {
+                public void actionPerformed(java.awt.event.ActionEvent evt) {
+                    x_spacing_fieldActionPerformed(evt);
+                }
+            });
+
             javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
             this.setLayout(layout);
             layout.setHorizontalGroup(
                 layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(layout.createSequentialGroup()
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                        .addGroup(layout.createSequentialGroup()
                             .addContainerGap()
-                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                .addGroup(layout.createSequentialGroup()
-                                    .addComponent(jLabel6)
-                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                    .addComponent(h_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, 99, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addGroup(layout.createSequentialGroup()
-                                    .addComponent(jLabel7)
-                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                    .addComponent(v_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                            .addGap(126, 126, 126))
-                        .addGroup(layout.createSequentialGroup()
-                            .addGap(226, 226, 226)
-                            .addComponent(jLabel4)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
-                    .addComponent(bs_xpos, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGap(18, 18, 18)
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(layout.createSequentialGroup()
-                            .addComponent(jLabel5)
-                            .addGap(18, 18, 18)
-                            .addComponent(bs_ypos, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                            .addGap(0, 0, Short.MAX_VALUE)
-                            .addComponent(LEFT_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(load_button)
                             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addComponent(save_button)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addComponent(swap_active_and_stored_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addGroup(layout.createSequentialGroup()
                             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                .addComponent(UP_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addGroup(layout.createSequentialGroup()
-                                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                                        .addComponent(DOWN_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 49, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(filler2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                    .addComponent(RIGHT_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                            .addContainerGap(12, Short.MAX_VALUE))))
+                                    .addGap(226, 226, 226)
+                                    .addComponent(jLabel4)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED))
+                                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                    .addContainerGap()
+                                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                .addGroup(layout.createSequentialGroup()
+                                                    .addComponent(jLabel6)
+                                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                                    .addComponent(h_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, 99, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                                .addGroup(layout.createSequentialGroup()
+                                                    .addComponent(jLabel7)
+                                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                                    .addComponent(v_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                                            .addGap(126, 126, 126))
+                                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                .addComponent(jLabel8)
+                                                .addComponent(jLabel9))
+                                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))))
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                    .addComponent(x_spacing_field)
+                                    .addComponent(y_spacing_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addComponent(bs_xpos, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                    .addGap(18, 18, 18)
+                    .addComponent(jLabel5)
+                    .addGap(18, 18, 18)
+                    .addComponent(bs_ypos, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addContainerGap(60, Short.MAX_VALUE))
                 .addGroup(layout.createSequentialGroup()
                     .addContainerGap()
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -396,20 +452,30 @@ public class SLM_controls extends javax.swing.JPanel {
                                 .addComponent(n_b_y_field)
                                 .addComponent(beam_selected, 0, 117, Short.MAX_VALUE)
                                 .addComponent(n_b_x_field))
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                            .addComponent(gen_square_button)
-                            .addGap(43, 43, 43)
-                            .addComponent(generate_hologram_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addComponent(gen_square_button, javax.swing.GroupLayout.PREFERRED_SIZE, 211, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(generate_hologram_button, javax.swing.GroupLayout.PREFERRED_SIZE, 211, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addGap(12, 12, 12))
                         .addGroup(layout.createSequentialGroup()
                             .addGap(16, 16, 16)
                             .addComponent(show_stored)
                             .addGap(43, 43, 43)
-                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                                .addComponent(save_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(add_to_list_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(load_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                .addComponent(add_to_list_button, javax.swing.GroupLayout.DEFAULT_SIZE, 116, Short.MAX_VALUE)
+                                .addComponent(clear_stored_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                    .addComponent(LEFT_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(UP_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(DOWN_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 49, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                    .addComponent(RIGHT_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addComponent(filler2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGap(38, 38, 38))))
             );
             layout.setVerticalGroup(
                 layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -419,11 +485,15 @@ public class SLM_controls extends javax.swing.JPanel {
                         .addComponent(n_b_x_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(jLabel1)
                         .addComponent(generate_hologram_button)
-                        .addComponent(gen_square_button))
+                        .addComponent(jLabel9)
+                        .addComponent(x_spacing_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(n_b_y_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(jLabel2))
+                        .addComponent(jLabel2)
+                        .addComponent(jLabel8)
+                        .addComponent(y_spacing_field, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(gen_square_button))
                     .addGap(18, 18, 18)
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(beam_selected, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -432,46 +502,51 @@ public class SLM_controls extends javax.swing.JPanel {
                         .addComponent(bs_xpos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(jLabel5)
                         .addComponent(bs_ypos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGap(18, 18, 18)
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                         .addGroup(layout.createSequentialGroup()
-                            .addGap(27, 27, 27)
-                            .addComponent(UP_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                .addComponent(filler2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(RIGHT_BUTTON, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(LEFT_BUTTON, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                            .addComponent(DOWN_BUTTON, javax.swing.GroupLayout.DEFAULT_SIZE, 49, Short.MAX_VALUE)
-                            .addContainerGap())
-                        .addGroup(layout.createSequentialGroup()
-                            .addGap(46, 46, 46)
+                            .addGap(0, 0, Short.MAX_VALUE)
                             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                                     .addComponent(h_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                     .addComponent(jLabel6))
                                 .addComponent(add_to_list_button))
                             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(v_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(jLabel7)
+                                .addComponent(clear_stored_button))
+                            .addGap(18, 18, 18)
+                            .addComponent(show_stored)
+                            .addGap(30, 30, 30)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(load_button)
+                                .addComponent(save_button)
+                                .addComponent(swap_active_and_stored_button))
+                            .addGap(0, 0, Short.MAX_VALUE))
+                        .addGroup(layout.createSequentialGroup()
+                            .addComponent(UP_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                .addComponent(RIGHT_BUTTON, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(LEFT_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                .addGroup(layout.createSequentialGroup()
-                                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                        .addComponent(v_nudge, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(jLabel7))
-                                    .addGap(18, 18, 18)
-                                    .addComponent(show_stored))
-                                .addGroup(layout.createSequentialGroup()
-                                    .addComponent(load_button)
-                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                    .addComponent(save_button)))
-                            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                                .addComponent(DOWN_BUTTON, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                    .addComponent(filler2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addGap(59, 59, 59)))))
+                    .addContainerGap())
             );
         }// </editor-fold>//GEN-END:initComponents
 
     private void add_to_list_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_add_to_list_buttonActionPerformed
         if(current_stored_beam<max_stored_beams){
-            stored_beams[current_stored_beam] = new Circle_To_Draw(active_beams[0][0]);
+            stored_beams[current_stored_beam] = new Circle_To_Draw(active_beams[0]);
+            stored_beams[current_stored_beam].set_name("Beam_"+Integer.toString(current_stored_beam));
+            stored_beams[current_stored_beam].set_colour(colour_list[current_stored_beam%n_colours]);
             current_stored_beam++;
-            update_beam_info();
+            update_beam_arrays();
         } else {
             System.out.println("Too many beams to store!");
         }
@@ -490,16 +565,14 @@ public class SLM_controls extends javax.swing.JPanel {
     private void beam_selectedActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_beam_selectedActionPerformed
         if(initialised_ && ignore_selection_activity==false){
             String sel_beam = (String) beam_selected.getSelectedItem();
-            for(int x=0;x<n_beams_x;x++){
-                for(int y=0;y<n_beams_y;y++){
-                    if(active_beams[x][y].get_name()==sel_beam){
-                        bs_xpos.setText(Double.toString(active_beams[x][y].get_xctr_mm()));
-                        bs_ypos.setText(Double.toString(active_beams[x][y].get_yctr_mm()));
-                        active_beams[x][y].set_highlighted(true);
-                    } else {
-                        active_beams[x][y].set_highlighted(false);
+            for(int i=0;i<n_active_beams;i++){
+                if(active_beams[i].get_name()==sel_beam){
+                    bs_xpos.setText(Double.toString(active_beams[i].get_xctr_mm()));
+                    bs_ypos.setText(Double.toString(active_beams[i].get_yctr_mm()));
+                    active_beams[i].set_highlighted(true);
+                } else {
+                    active_beams[i].set_highlighted(false);
                     }
-                }
             }
             try{
                 int[]beam_sel = parse_beam_name(sel_beam);
@@ -524,7 +597,8 @@ public class SLM_controls extends javax.swing.JPanel {
     }//GEN-LAST:event_bs_yposActionPerformed
 
     private void save_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_save_buttonActionPerformed
-        String gsonified = gson.toJson(active_beams);
+        Circle_To_Draw[] tmp_stored = Arrays.copyOfRange(stored_beams, 0, current_stored_beam);
+        String gsonified = gson.toJson(tmp_stored);
         int result = fileChooser_load.showOpenDialog(this);
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser_load.getSelectedFile();
@@ -557,15 +631,8 @@ public class SLM_controls extends javax.swing.JPanel {
                         input += data;
                     }
                     Reader.close();
-                    active_beams = gson.fromJson(input, Circle_To_Draw[][].class);
-                    n_beams_x = active_beams.length;
-                    if(n_beams_x>0){
-                        n_beams_y = active_beams[0].length;
-                    }
-                    n_b_x_field.setText(Integer.toString(n_beams_x));
-                    n_b_y_field.setText(Integer.toString(n_beams_y));
-                    update_dropdown_from_beams();
-                    update_beam_info();
+                    stored_beams = gson.fromJson(input, Circle_To_Draw[].class);
+                    current_stored_beam = stored_beams.length;
                 } catch (FileNotFoundException e) {
                     System.out.println("An error occurred.");
                     e.printStackTrace();
@@ -573,6 +640,7 @@ public class SLM_controls extends javax.swing.JPanel {
             } else {
                 System.out.println("NOT AN EXISTING FILE?!");
             }
+            update_beam_arrays();
         }
     }//GEN-LAST:event_load_buttonActionPerformed
 
@@ -614,12 +682,58 @@ public class SLM_controls extends javax.swing.JPanel {
 
     private void show_storedActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_show_storedActionPerformed
         show_stored_beams = show_stored.isSelected();
-        update_beam_info();
+        update_beam_arrays();
     }//GEN-LAST:event_show_storedActionPerformed
 
     private void gen_square_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_gen_square_buttonActionPerformed
         generate_square_beam_array();
     }//GEN-LAST:event_gen_square_buttonActionPerformed
+
+    private void clear_stored_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clear_stored_buttonActionPerformed
+        clear_stored_beams();
+    }//GEN-LAST:event_clear_stored_buttonActionPerformed
+
+    private void swap_active_and_stored_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_swap_active_and_stored_buttonActionPerformed
+        if(stored_beams != null){
+            if(stored_beams[0].get_name() != null && active_beams != null){
+                Circle_To_Draw[] tmp_stored = stored_beams.clone();
+                stored_beams = new Circle_To_Draw[max_stored_beams];
+                int i=0;
+                for(Circle_To_Draw beam : active_beams){
+                    if(i<max_stored_beams){
+                        stored_beams[i] = new Circle_To_Draw(beam);
+                        i++;
+                    } else {
+                        System.out.println("Too many stored beams!");
+                    }
+                }
+                i=0;
+                active_beams = new Circle_To_Draw[current_stored_beam];
+                for(Circle_To_Draw beam : tmp_stored){
+                    if(i<current_stored_beam){
+                        active_beams[i] = new Circle_To_Draw(beam);
+                        i++;
+                    } else {
+                        //No need to worry about these
+                    }
+                }
+                current_stored_beam = n_active_beams;
+                n_active_beams = active_beams.length;
+                update_dropdown_from_beams();
+                update_beam_arrays();
+            }    
+        }
+    }//GEN-LAST:event_swap_active_and_stored_buttonActionPerformed
+
+    private void x_spacing_fieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_x_spacing_fieldActionPerformed
+        sanitise(x_spacing_field);
+        default_beamspacing_h = Double.parseDouble(x_spacing_field.getText());
+    }//GEN-LAST:event_x_spacing_fieldActionPerformed
+
+    private void y_spacing_fieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_y_spacing_fieldActionPerformed
+        sanitise(y_spacing_field);
+        default_beamspacing_v = Double.parseDouble(y_spacing_field.getText());
+    }//GEN-LAST:event_y_spacing_fieldActionPerformed
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -631,6 +745,7 @@ public class SLM_controls extends javax.swing.JPanel {
     private javax.swing.JComboBox<String> beam_selected;
     private javax.swing.JTextField bs_xpos;
     private javax.swing.JTextField bs_ypos;
+    private javax.swing.JButton clear_stored_button;
     private javax.swing.Box.Filler filler2;
     private javax.swing.JButton gen_square_button;
     private javax.swing.JButton generate_hologram_button;
@@ -642,11 +757,17 @@ public class SLM_controls extends javax.swing.JPanel {
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
+    private javax.swing.JLabel jLabel8;
+    private javax.swing.JLabel jLabel9;
     private javax.swing.JButton load_button;
     private javax.swing.JTextField n_b_x_field;
     private javax.swing.JTextField n_b_y_field;
     private javax.swing.JButton save_button;
     private javax.swing.JCheckBox show_stored;
+    private javax.swing.JButton swap_active_and_stored_button;
     private javax.swing.JTextField v_nudge;
+    private javax.swing.JTextField x_spacing_field;
+    private javax.swing.JTextField y_spacing_field;
     // End of variables declaration//GEN-END:variables
+
 }
